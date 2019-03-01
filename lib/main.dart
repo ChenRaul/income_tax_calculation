@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:income_tax_calculation/AppColors.dart';
 import 'package:income_tax_calculation/CustomListDialog.dart';
 import 'package:income_tax_calculation/CustomNoticeDialog.dart';
+import 'package:income_tax_calculation/RentHouseSelectDialog.dart';
 
 void main() => runApp(MyApp());
 
@@ -24,7 +25,7 @@ class MyApp extends StatelessWidget {
         // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(title: '个税计算'),
     );
   }
 }
@@ -51,6 +52,9 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final List<String> itemList = ['月薪资','五险一金','子女教育','继续教育','住房贷款利息','住房租金','赡养老人','大病医疗'];
   final double baseTax = 5000;
+  double houseValue=0;//公积金值
+  double socialValue=0;//社保值
+  double houseLoansValue=0;//住房支出，贷款1000，租房分为1500、1100、800
   List<String> value= ['','','','','','','',''];
   List<double> valueDouble=[0,0,0,0,0,0,0,0];
   InputDecoration inputDecoration;
@@ -58,6 +62,7 @@ class _MyHomePageState extends State<MyHomePage> {
   double preUpTaxValue = 0;//预缴税本金
   bool seriousByMonth = true;
   String seriousValue='';//保存大病医疗的输入值，因为大病医疗分为两种情况计算，
+  String childNum='';
 
   @override
   void initState(){
@@ -81,6 +86,18 @@ class _MyHomePageState extends State<MyHomePage> {
       );
     });
   }
+  void _showSelectRentHouseDialog(){
+    showDialog(context:context,builder: (BuildContext context){
+      return RentHouseSelectDialog(
+        clickOutCancel: false,
+        press: (value){
+            setState(() {
+              houseLoansValue = value;
+            });
+        },
+      );
+    });
+  }
   void _showNoticeDialog(String noticeText,int index){
     showDialog(context:context,builder: (BuildContext context){
       return CustomNoticeDialog(
@@ -91,12 +108,16 @@ class _MyHomePageState extends State<MyHomePage> {
         posBtnText: '确定',
         negBtnText: '取消',
         posPress: (){
-          if(index != -1){
+          if(index != -1 && index != -2){
             setState(() {
               value[index] = '';
               if(index == itemList.length -1){
                 seriousValue='';
               }
+            });
+          }else if(index == -2){
+            setState(() {
+              childNum = '';
             });
           }
         },
@@ -335,10 +356,166 @@ class _MyHomePageState extends State<MyHomePage> {
 
     return Container(
         color: Colors.white,
-      child: Text('sssss'),
+      padding: EdgeInsets.fromLTRB(20, 5, 5, 5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              RichText(
+                text:TextSpan(
+                  children: [
+                    TextSpan(
+                        text: '住房公积金：',
+                        style: TextStyle(color: Colors.black87,fontSize: 14,)
+                    ),
+                    TextSpan(
+                        text: '$houseValue',
+                        style: TextStyle(color: Color(AppColors.appThemeColor),fontSize: 14,)
+                    ),
+                    TextSpan(
+                        text: '元',
+                        style: TextStyle(color: Colors.black87,fontSize: 14,)
+                    ),
+                  ]
+                )
+              ),
+              RichText(
+                  text:TextSpan(
+                      children: [
+                        TextSpan(
+                            text: '社保：',
+                            style: TextStyle(color: Colors.black87,fontSize: 14,)
+                        ),
+                        TextSpan(
+                            text: '$socialValue',
+                            style: TextStyle(color: Color(AppColors.appThemeColor),fontSize: 14,)
+                        ),
+                        TextSpan(
+                            text: '元',
+                            style: TextStyle(color: Colors.black87,fontSize: 14,)
+                        ),
+                      ]
+                  )
+              )
+            ],
+          ),
+          SizedBox(
+            width: 60,
+            height: 30,
+            child: CupertinoButton(
+                color: Color(AppColors.appThemeColor),
+                pressedOpacity: 0.9,
+                borderRadius: BorderRadius.all(Radius.circular(3)),
+                padding: EdgeInsets.all(0),
+                child: Text('编辑',style: TextStyle(fontSize: 14),),
+                onPressed: (){
+                  //TODO 跳转到自定义页面
+                }
+            ),
+          )
+        ],
+      ),
+    );
+  }
+///住房贷款支出
+  Widget _getHouseLoans(){
+
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.all(10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: <Widget>[
+          SizedBox(
+              height: 30,
+            child:CupertinoButton(
+                color: houseLoansValue == 1000 ?Color(AppColors.appThemeColor):Colors.grey[500],
+                pressedOpacity: 0.9,
+                borderRadius: BorderRadius.all(Radius.circular(3)),
+                padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
+                child: Text('首套房贷(1000元/月)',style: TextStyle(fontSize: 14),),
+                onPressed: (){
+                  setState(() {
+                    houseLoansValue = 1000;
+                  });
+                })
+            ),
+            SizedBox(
+                height: 30,
+                child:CupertinoButton(
+                    color: houseLoansValue != 1000 && houseLoansValue != 0 ?Color(AppColors.appThemeColor):Colors.grey[500],
+                    pressedOpacity: 0.9,
+                    borderRadius: BorderRadius.all(Radius.circular(3)),
+                    padding: EdgeInsets.fromLTRB(5, 0, 5, 0),
+                    child: Text(houseLoansValue != 1000 && houseLoansValue != 0 ?'租房($houseLoansValue )元/月':'租房',style: TextStyle(fontSize: 14),),
+                    onPressed: (){
+                      _showSelectRentHouseDialog();
+                    })
+            )
+        ],
+      ),
     );
   }
 
+  ///子女教育
+  Widget _getEducation(){
+    return Container(
+      color:Colors.white,
+      padding: EdgeInsets.all(10),
+      child: Column(
+        children: <Widget>[
+             Container(
+               margin: EdgeInsets.fromLTRB(30, 0, 30, 0),
+              padding: EdgeInsets.all(3),
+              ///间接设置TextField的输入框边框颜色，和宽度
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Color(AppColors.appThemeColor),
+                  width: 1,
+                  
+                ),
+                borderRadius: BorderRadius.all(Radius.circular(3))
+              ),
+              child: Theme(
+                ///设置输入框的边框颜色，使用上面的方式可以设置输入框的边框宽度
+                data: ThemeData(
+                    primaryColor: Color(AppColors.appThemeColor),
+                    accentColor: Color(AppColors.appThemeColor),
+                    hintColor:  Colors.black87
+                ),
+                child: TextField(
+                  ///设置输入框的内容
+                    controller: TextEditingController(text: childNum) ,
+                    keyboardType:TextInputType.number,
+//                    inputFormatters: WIn,
+                    style:TextStyle(
+                        color: Colors.black87,
+                        fontSize: 15
+                    ),
+
+                    decoration:InputDecoration.collapsed(
+                      hintText: '请先填写受教育子女个数',
+                    ),
+                    onChanged: (text){
+                      if(text.length > 0){
+                        int temp = int.tryParse(text);
+                        if(temp == null){
+                          _showNoticeDialog('请输入正确的数量',-2);
+                        }else{
+                          ///TODO
+                        }
+                      }
+                    },
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     // This method is rerun every time setState is called, for instance as done
@@ -353,6 +530,7 @@ class _MyHomePageState extends State<MyHomePage> {
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
+          centerTitle:true
       ),
       body:ListView(
         children: <Widget>[
@@ -360,7 +538,9 @@ class _MyHomePageState extends State<MyHomePage> {
           _getTitleItem('五险一金'),
           _getFiveAndOne(),
           _getTitleItem('住房支出'),
+          _getHouseLoans(),
           _getTitleItem('子女教育'),
+          _getEducation(),
           _getTitleItem('赡养老人'),
           _getTitleItem('继续教育'),
           _getTitleItem('大病支出'),
