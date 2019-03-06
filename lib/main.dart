@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:income_tax_calculation/AppColors.dart';
 import 'package:income_tax_calculation/CustomListDialog.dart';
 import 'package:income_tax_calculation/CustomNoticeDialog.dart';
+import 'package:income_tax_calculation/FiveAndOneCustom.dart';
 import 'package:income_tax_calculation/Ratio.dart';
 import 'package:income_tax_calculation/RentHouseSelectDialog.dart';
 
@@ -61,7 +62,6 @@ class _MyHomePageState extends State<MyHomePage> {
   double seriousValue=0;//大病支出，小于15000则不予扣减，但不能超过80000
   double monthPayValue=0;//月薪资
 
-  String monthPayStr='';
 
   List<double> value = List();//'月薪资','五险一金','子女教育','继续教育','住房支出','赡养老人','大病医疗'
   InputDecoration inputDecoration;
@@ -448,7 +448,20 @@ class _MyHomePageState extends State<MyHomePage> {
                 padding: EdgeInsets.all(0),
                 child: Text('自定义',style: TextStyle(fontSize: 14),),
                 onPressed: (){
-                  //TODO 跳转到自定义页面
+                  /// 跳转到自定义页面
+                  if(monthPayValue <= 0){
+                    _showNoticeDialog('请先输入税前工资', 999);
+                  }else{
+                    Navigator.push<Map<String,double>>(context, MaterialPageRoute(builder: (BuildContext context){
+                      return FiveAndOneCustom(monthPayValue: monthPayValue,);
+                    })).then((ret){
+                      print(ret);
+                      setState(() {
+                        houseValue = ret['house'];
+                        socialValue = ret['social'];
+                      });
+                    });
+                  }
                 }
             ),
           )
