@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:income_tax_calculation/AppColors.dart';
 import 'package:income_tax_calculation/CustomListDialog.dart';
 import 'package:income_tax_calculation/CustomNoticeDialog.dart';
+import 'package:income_tax_calculation/Ratio.dart';
 import 'package:income_tax_calculation/RentHouseSelectDialog.dart';
 
 void main() => runApp(MyApp());
@@ -50,19 +51,25 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final List<String> itemList = ['月薪资','五险一金','子女教育','继续教育','住房贷款利息','住房租金','赡养老人','大病医疗'];
   final double baseTax = 5000;
   double houseValue=0;//公积金值
   double socialValue=0;//社保值
   double houseLoansValue=0;//住房支出，贷款1000，租房分为1500、1100、800
-  List<String> value= ['','','','','','','',''];
-  List<double> valueDouble=[0,0,0,0,0,0,0,0];
+  double childValue=0;//小孩受教育，每个1000元
+  double oldManValue=0;//赡养老人，独生子女2000，不是则自定义填写，不能超过1000
+  double continueEducationValue = 0;//继续教育，学历教育400，技能/资格教育300
+  double seriousValue=0;//大病支出，小于15000则不予扣减，但不能超过80000
+  double monthPayValue=0;//月薪资
+
+  String monthPayStr='';
+
+  List<double> value = List();//'月薪资','五险一金','子女教育','继续教育','住房支出','赡养老人','大病医疗'
   InputDecoration inputDecoration;
   List<double> preTaxList=[0,0,0,0,0,0,0,0,0,0,0,0];//预缴默认税款，
   double preUpTaxValue = 0;//预缴税本金
   bool seriousByMonth = true;
-  String seriousValue='';//保存大病医疗的输入值，因为大病医疗分为两种情况计算，
-  String childNum='';
+  int childNum=0;
+  bool oldManOff = true;//隐藏
 
   @override
   void initState(){
@@ -79,7 +86,7 @@ class _MyHomePageState extends State<MyHomePage> {
         posPress: (){
           if(index != -1){
             setState(() {
-              value[index] = '';
+              value[index] = 0;
             });
           }
         },
@@ -108,46 +115,57 @@ class _MyHomePageState extends State<MyHomePage> {
         posBtnText: '确定',
         negBtnText: '取消',
         posPress: (){
-          if(index != -1 && index != -2){
-            setState(() {
-              value[index] = '';
-              if(index == itemList.length -1){
-                seriousValue='';
-              }
-            });
-          }else if(index == -2){
-            setState(() {
-              childNum = '';
-            });
-          }
+
+          setState(() {
+            switch(index){
+              case 1:
+                monthPayValue = 0;
+                break;
+              case 2:
+                childNum = 0;
+                break;
+              case 3:
+                oldManValue = 0;
+                break;
+              case 999:
+                break;
+            }
+
+          });
         },
       );
     });
   }
 //上一年度的大病医疗实时扣除
   void _onCalculate(){
-    if(value[0].isEmpty){
-      _showNoticeDialog('月工资是必填项',-1);
+
+
+    if(monthPayValue==0){
+      _showNoticeDialog('月工资是必填项',999);
       return;
     }
+    print('$monthPayValue,${houseValue+socialValue},$childValue,$continueEducationValue,$houseLoansValue,$oldManValue');
+    value.clear();
+    value.add(monthPayValue);
+    value.add(houseValue+socialValue);
+    value.add(childValue);
+    value.add(continueEducationValue);
+    value.add(houseLoansValue);
+    value.add(oldManValue);
+
     double count=0;
     if(seriousByMonth){//大病医疗按月扣除
-        if(double.tryParse(value[value.length-1]) != null){
-          value[value.length-1] = (double.tryParse(seriousValue)/12).toString();
-        }else{
-          value[value.length-1] = '0';
-        }
+         value.add(seriousValue/12);
         print('每月大病疗 = ${value[value.length-1]}');
         double need = 0;
         for(int i=0;i<value.length;i++){
           if(i == 0){
-            need = double.tryParse(value[i]) == null ? 0 :double.tryParse(value[i]) - baseTax;
+            need = value[i] - baseTax;
           }else{
-            need -= (double.tryParse(value[i]) == null ? 0 :double.tryParse(value[i]));
+            need -= value[i];
           }
-          print('need = $need');
         }
-
+         print('need = $need');
 
         for(int i=0;i<12;i++){
           double temp = _calculateMonth(need,i+1);
@@ -156,26 +174,27 @@ class _MyHomePageState extends State<MyHomePage> {
           count+=temp;
         }
     }else{
-      double need = 0;
+      value.add(seriousValue);
+      double need = 0;//需要缴税的本金
       bool seriousOver = false;
-      value[itemList.length-1] = seriousValue;
       for(int i=0;i<value.length;i++){
         if(i == 0){
-          need = double.tryParse(value[i]) == null ? 0 :double.tryParse(value[i]) -baseTax;
+          need = value[i] -baseTax;
         }else{
-          need -= (double.tryParse(value[i]) == null ? 0 :double.tryParse(value[i]));
+          need -= value[i];
         }
       }
+
       if(need <= 0){//说明大病医疗还有剩余的没有扣除
-        value[value.length-1] = need.abs().toString();
+        value[value.length-1] = need.abs();
         seriousOver = false;
       }else{
         seriousOver = true;
-        value[value.length-1] = '0';
+        value[value.length-1] = 0;
       }
+      print('need = ${value[value.length-1]}');
       int noUpTaxMonth = 0;
       for(int i=0;i<12;i++){
-        print('need=$need');
         if(seriousOver){
           double temp = _calculateMonth(need,i+1-noUpTaxMonth);
           print('${i+1}月缴税：$temp 元,缴税本金：${need*(i+1-noUpTaxMonth)}元 ${i+1-noUpTaxMonth}，剩余大病医疗保险：${value[value.length-1]}元');
@@ -183,9 +202,9 @@ class _MyHomePageState extends State<MyHomePage> {
           count+=temp;
           for(int i=0;i<value.length;i++){
             if(i == 0){
-              need = double.tryParse(value[i]) == null ? 0 :double.tryParse(value[i]) -baseTax;
+              need = value[i]-baseTax;
             }else{
-              need -= (double.tryParse(value[i]) == null ? 0 :double.tryParse(value[i]));
+              need -= value[i];
             }
           }
         }else{
@@ -196,20 +215,22 @@ class _MyHomePageState extends State<MyHomePage> {
           count+=temp;
 
           //重新计算need，直到大病医疗没有剩余
+          print(value);
           for(int i=0;i<value.length;i++){
             if(i == 0){
-              need = double.tryParse(value[i]) == null ? 0 :double.tryParse(value[i]) -baseTax;
+              need = value[i] -baseTax;
             }else{
-              need -= (double.tryParse(value[i]) == null ? 0 :double.tryParse(value[i]));
+              need -= value[i];
             }
           }
           if(need <= 0){//说明大病医疗还有剩余的没有扣除
-            value[value.length-1] = need.abs().toString();
+            value[value.length-1] = need.abs();
             seriousOver = false;
           }else{
-            value[value.length-1] = '0';
+            value[value.length-1] = 0;
             seriousOver = true;
           }
+
         }
 
       }
@@ -273,7 +294,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   //税前工资
-  Widget _payMonth(int index){
+  Widget _payMonth(){
     return Container(
       color: Colors.white,
       padding: EdgeInsets.fromLTRB(10, 5, 40, 5),
@@ -293,7 +314,18 @@ class _MyHomePageState extends State<MyHomePage> {
           ///在Row或者Column等使用TextField时，需要在外面包裹一层Flexible,
           Flexible(
             child: TextField(
-              controller: TextEditingController(text: index == itemList.length-1 ? seriousValue :value[index]) ,
+//              controller: TextEditingController.fromValue(
+//                  TextEditingValue(
+//                      text: '${monthPayValue==0?'':monthPayValue}',
+//                      //当setState设置text属性时，下面的属性可以保持光标在最后
+//                      selection: TextSelection.fromPosition(
+//                        TextPosition(
+//                          affinity: TextAffinity.downstream,
+//                          offset: '${monthPayValue==0?'':monthPayValue}'.length
+//                        )
+//                      )
+//                  )
+//              ) ,
               focusNode: FocusNode(),
               keyboardType:TextInputType.number,
               textAlign: TextAlign.left,
@@ -316,16 +348,20 @@ class _MyHomePageState extends State<MyHomePage> {
                 if(text.length > 0){
                   double temp = double.tryParse(text);
                   if(temp==null){
-                    _showNoticeDialog('请输入正确金额!',index);
+                    _showNoticeDialog('请输入正确金额!',1);
                   }else{
-                    value[index] = text;
-                    if(index == itemList.length-1){
-                      seriousValue = text;
-                    }
+                    monthPayValue = temp;
+                    setState(() {
+                      houseValue = double.parse((monthPayValue*Ratio.houseFound).toStringAsFixed(2));
+                      socialValue = double.parse((monthPayValue*Ratio.social).toStringAsFixed(2));
+                    });
                   }
                 }else{
-                  value[index] = '';
-
+                  monthPayValue = 0;
+                  setState(() {
+                    houseValue = 0;
+                    socialValue = 0;
+                  });
                 }
               },
             ),
@@ -410,7 +446,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 pressedOpacity: 0.9,
                 borderRadius: BorderRadius.all(Radius.circular(3)),
                 padding: EdgeInsets.all(0),
-                child: Text('编辑',style: TextStyle(fontSize: 14),),
+                child: Text('自定义',style: TextStyle(fontSize: 14),),
                 onPressed: (){
                   //TODO 跳转到自定义页面
                 }
@@ -468,7 +504,7 @@ class _MyHomePageState extends State<MyHomePage> {
       child: Column(
         children: <Widget>[
              Container(
-               margin: EdgeInsets.fromLTRB(30, 0, 30, 0),
+               margin: EdgeInsets.fromLTRB(30, 0, 30, 10),
               padding: EdgeInsets.all(3),
               ///间接设置TextField的输入框边框颜色，和宽度
               decoration: BoxDecoration(
@@ -488,7 +524,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 child: TextField(
                   ///设置输入框的内容
-                    controller: TextEditingController(text: childNum) ,
+//                    controller: TextEditingController(text: childNum==0?'':'$childNum') ,
                     keyboardType:TextInputType.number,
 //                    inputFormatters: WIn,
                     style:TextStyle(
@@ -503,15 +539,244 @@ class _MyHomePageState extends State<MyHomePage> {
                       if(text.length > 0){
                         int temp = int.tryParse(text);
                         if(temp == null){
-                          _showNoticeDialog('请输入正确的数量',-2);
+                          _showNoticeDialog('请输入正确的数量',2);
                         }else{
                           ///TODO
+                          print('子女个数：$temp');
+//                          setState(() {
+                            childNum = temp;
+//                          });
                         }
+                      }else{
+                        setState(() {
+                          childNum = 0;
+                        });
                       }
                     },
                 ),
               ),
             ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: <Widget>[
+              SizedBox(
+                  height: 30,
+                  child:CupertinoButton(
+                      color: childValue/childNum == 1000 ?Color(AppColors.appThemeColor):Colors.grey[500],
+                      pressedOpacity: 0.9,
+                      borderRadius: BorderRadius.all(Radius.circular(3)),
+                      padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      child: Text('单独抵扣(${childValue/childNum == 1000?childValue:0}元/月)',style: TextStyle(fontSize: 14),),
+                      onPressed: (){
+                        if(childNum > 0){
+                          setState(() {
+                            print(childNum);
+                            childValue = 1000.0 * childNum;
+                            print(childValue);
+                          });
+                        }else{
+                          _showNoticeDialog('请先填写受教育子女个数', 999);
+                        }
+                      })
+              ),
+              SizedBox(
+                  height: 30,
+                  child:CupertinoButton(
+                      color: childValue/childNum == 500 ?Color(AppColors.appThemeColor):Colors.grey[500],
+                      pressedOpacity: 0.9,
+                      borderRadius: BorderRadius.all(Radius.circular(3)),
+                      padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      child: Text('共同抵扣(${childValue/childNum == 500?childValue:0}元/月)',style: TextStyle(fontSize: 14),),
+                      onPressed: (){
+                        if(childNum > 0){
+                          setState(() {
+                            // ignore: unnecessary_statements
+                            childValue = 1000*childNum/2;
+                          });
+                        }else{
+                          _showNoticeDialog('请先填写受教育子女个数', 999);
+                        }
+                      })
+              )
+            ],
+          )
+        ],
+      ),
+    );
+  }
+  ///赡养老人
+  Widget _getOldMan(){
+    return Container(
+      color:Colors.white,
+      padding: EdgeInsets.all(10),
+      child: Column(
+
+        children: <Widget>[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: <Widget>[
+                Text('是否独生子女:',style: TextStyle(fontSize: 16,color: Color(AppColors.appThemeColor)),),
+                SizedBox(
+                  height: 30,
+                  child: CupertinoButton(
+                      color: oldManValue== 2000 ?Color(AppColors.appThemeColor):Colors.grey[500],
+                      padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      pressedOpacity: 0.9,
+                      borderRadius: BorderRadius.all(Radius.circular(3)),
+                      child: Text('是(2000元/月)',style: TextStyle(fontSize: 14),),
+                      onPressed: (){
+                        setState(() {
+                          oldManOff = true;
+                          oldManValue = 2000;
+                        });
+                      }
+                  ),
+                ),
+                SizedBox(
+                  height: 30,
+                  child: CupertinoButton(
+                      color:  oldManValue!= 2000 ? Color(AppColors.appThemeColor):Colors.grey[500],
+                      padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      pressedOpacity: 0.9,
+                      borderRadius: BorderRadius.all(Radius.circular(3)),
+                      child: Text('否(${oldManValue != 2000?oldManValue:0}元/月)',style: TextStyle(fontSize: 14),),
+                      onPressed: (){
+                        setState(() {
+                          oldManValue=0;
+                          oldManOff = false;
+                        });
+                      }
+                  ),
+                ),
+              ],
+            ),
+            Offstage(
+              offstage: oldManOff,
+              child: Container(
+                margin: EdgeInsets.fromLTRB(60, 10, 20, 10),
+                padding: EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Color(AppColors.appThemeColor),
+                        width: 1,
+
+                      ),
+                      borderRadius: BorderRadius.all(Radius.circular(3))
+                ),
+                child: TextField(
+                  decoration: InputDecoration.collapsed(hintText: '请输入分摊金额(不超过1000元)'),
+                  keyboardType: TextInputType.number,
+                  onChanged: (text){
+                    if(text.length > 0){
+                      double temp = double.tryParse(text);
+                      if(temp == null || temp >1000){
+                        _showNoticeDialog('请输入正确的金额', 3);
+                      }else{
+                        setState(() {
+                          oldManValue = temp;
+                        });
+                      }
+                    }else{
+                      setState(() {
+                        oldManValue = 0;
+                      });
+                    }
+                  },
+                ),
+              ),
+            )
+        ],
+
+      ),
+    );
+  }
+  ///继续教育
+  Widget _getContinuingEducation(){
+    return Container(
+      color:Colors.white,
+      padding: EdgeInsets.all(10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: <Widget>[
+          SizedBox(
+            height: 30,
+            child: CupertinoButton(
+                color:  continueEducationValue == 400 ? Color(AppColors.appThemeColor):Colors.grey[500],
+                padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
+                pressedOpacity: 0.9,
+                borderRadius: BorderRadius.all(Radius.circular(3)),
+                child: Text('学历教育(400元/月)',style: TextStyle(fontSize: 14),),
+                onPressed: (){
+                  setState(() {
+                    continueEducationValue = 400;
+                  });
+                }
+            ),
+          ),
+          SizedBox(
+            height: 30,
+            child: CupertinoButton(
+                color:  continueEducationValue == 300 ? Color(AppColors.appThemeColor):Colors.grey[500],
+                padding: EdgeInsets.fromLTRB(0, 0, 0, 0),
+                pressedOpacity: 0.9,
+                borderRadius: BorderRadius.all(Radius.circular(3)),
+                child: Text('技能/资格教育(300元/月)',style: TextStyle(fontSize: 14),),
+                onPressed: (){
+                  setState(() {
+                    continueEducationValue = 300;
+                  });
+                }
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  ///大病支出
+  Widget _getSerious(){
+    return Container(
+      color:Colors.white,
+      padding: EdgeInsets.all(10),
+      child: Row(
+        children: <Widget>[
+          Text('大病支出(元)：',style: TextStyle(fontSize: 16,color: Color(AppColors.appThemeColor)),),
+          Flexible(
+              child: Container(
+                margin: EdgeInsets.fromLTRB(20, 0, 20, 0),
+                padding: EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Color(AppColors.appThemeColor),
+                      width: 1,
+                    ),
+                    borderRadius: BorderRadius.all(Radius.circular(3))
+                ),
+                child: TextField(
+                  style: TextStyle(color: Colors.black87),
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration.collapsed(
+                      hintText: '请输入金额(限1.5万以上/年)'
+                  ),
+                  onChanged: (text){
+                    if(text.length > 0){
+                      double temp = double.tryParse(text);
+                      if(temp == null){
+                        _showNoticeDialog('请输入正确的金额', 999);
+                      }else{
+                        if(temp < 15000){
+                          seriousValue = 0;
+                        }else if(temp >= 15000 && temp <=80000){
+                          seriousValue = temp;
+                        }else{
+                          seriousValue = 80000;
+                        }
+                      }
+                    }else{
+                        seriousValue = 0;
+                    }
+                  },
+            ),
+          ))
         ],
       ),
     );
@@ -534,16 +799,19 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body:ListView(
         children: <Widget>[
-          _payMonth(0),
+          _payMonth(),
           _getTitleItem('五险一金'),
           _getFiveAndOne(),
           _getTitleItem('住房支出'),
           _getHouseLoans(),
           _getTitleItem('子女教育'),
           _getEducation(),
-          _getTitleItem('赡养老人'),
+          _getTitleItem('赡养老人(60周岁以上)'),
+          _getOldMan(),
           _getTitleItem('继续教育'),
+          _getContinuingEducation(),
           _getTitleItem('大病支出'),
+          _getSerious(),
           Container(
             alignment: Alignment.centerRight,
             margin: EdgeInsets.fromLTRB(40, 5, 20, 5),
@@ -556,19 +824,13 @@ class _MyHomePageState extends State<MyHomePage> {
                   onChanged: (bool check){
                     setState(() {
                       seriousByMonth = check;
-//                      double temp = double.tryParse(value[value.length-1]);
-//                      if(temp == null){
-//                        value[value.length-1] = '0';
-//                      }else{
-//                        value[value.length-1] = (temp*12).toString();
-//                      }
                     });
                   }),
             ),
           ),
           Container(
             padding: EdgeInsets.all(5),
-            margin: EdgeInsets.fromLTRB(40, 5, 40, 5),
+            margin: EdgeInsets.fromLTRB(40, 5, 40, 40),
             decoration: BoxDecoration(
                 color:Color(AppColors.appThemeColor),
                 borderRadius: BorderRadius.all(Radius.circular(3))
