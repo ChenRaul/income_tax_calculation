@@ -57,7 +57,7 @@ class _MyHomePageState extends State<MyHomePage> {
   double socialValue=0;//社保值
   double houseLoansValue=0;//住房支出，贷款1000，租房分为1500、1100、800
   double childValue=0;//小孩受教育，每个1000元
-  double oldManValue=0;//赡养老人，独生子女2000，不是则自定义填写，不能超过1000
+  double oldManValue=-1;//赡养老人，独生子女2000，不是则自定义填写，不能超过1000
   double continueEducationValue = 0;//继续教育，学历教育400，技能/资格教育300
   double seriousValue=0;//大病支出，小于15000则不予扣减，但不能超过80000
   double monthPayValue=0;//月薪资
@@ -70,6 +70,8 @@ class _MyHomePageState extends State<MyHomePage> {
   bool seriousByMonth = true;
   int childNum=0;
   bool oldManOff = true;//隐藏
+
+  String inputChildNum='';
 
   @override
   void initState(){
@@ -125,7 +127,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 childNum = 0;
                 break;
               case 3:
-                oldManValue = 0;
+                oldManValue = -1;
                 break;
               case 999:
                 break;
@@ -151,6 +153,9 @@ class _MyHomePageState extends State<MyHomePage> {
     value.add(childValue);
     value.add(continueEducationValue);
     value.add(houseLoansValue);
+    if(oldManValue == -1){
+      oldManValue=0;
+    }
     value.add(oldManValue);
 
     double count=0;
@@ -166,13 +171,19 @@ class _MyHomePageState extends State<MyHomePage> {
           }
         }
          print('need = $need');
-
         for(int i=0;i<12;i++){
-          double temp = _calculateMonth(need,i+1);
-          print('${i+1}月：$temp 元');
-          preTaxList[i] = temp;//循环是直接从第一个月到12月，所以一次添加每个月的扣税金额即可
-          count+=temp;
+          if(need <=0){
+            preTaxList[i]=0;
+            count+=0;
+          }else{
+            double temp = _calculateMonth(need,i+1);
+            print('${i+1}月：$temp 元');
+            preTaxList[i] = temp;//循环是直接从第一个月到12月，所以一次添加每个月的扣税金额即可
+            count+=temp;
+          }
+
         }
+
     }else{
       value.add(seriousValue);
       double need = 0;//需要缴税的本金
@@ -537,7 +548,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 child: TextField(
                   ///设置输入框的内容
-//                    controller: TextEditingController(text: childNum==0?'':'$childNum') ,
+                    controller: TextEditingController(text: inputChildNum) ,
                     keyboardType:TextInputType.number,
 //                    inputFormatters: WIn,
                     style:TextStyle(
@@ -556,13 +567,12 @@ class _MyHomePageState extends State<MyHomePage> {
                         }else{
                           ///TODO
                           print('子女个数：$temp');
-//                          setState(() {
                             childNum = temp;
-//                          });
                         }
                       }else{
                         setState(() {
                           childNum = 0;
+                          childValue=0;
                         });
                       }
                     },
@@ -585,6 +595,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           setState(() {
                             print(childNum);
                             childValue = 1000.0 * childNum;
+                            inputChildNum = childNum.toString();
                             print(childValue);
                           });
                         }else{
@@ -605,6 +616,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           setState(() {
                             // ignore: unnecessary_statements
                             childValue = 1000*childNum/2;
+                            inputChildNum = childNum.toString();
                           });
                         }else{
                           _showNoticeDialog('请先填写受教育子女个数', 999);
@@ -648,11 +660,11 @@ class _MyHomePageState extends State<MyHomePage> {
                 SizedBox(
                   height: 30,
                   child: CupertinoButton(
-                      color:  oldManValue!= 2000 ? Color(AppColors.appThemeColor):Colors.grey[500],
+                      color:  oldManValue!= 2000 && oldManValue!=-1 ? Color(AppColors.appThemeColor):Colors.grey[500],
                       padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
                       pressedOpacity: 0.9,
                       borderRadius: BorderRadius.all(Radius.circular(3)),
-                      child: Text('否(${oldManValue != 2000?oldManValue:0}元/月)',style: TextStyle(fontSize: 14),),
+                      child: Text('否(${oldManValue != 2000 && oldManValue!= -1?oldManValue:0}元/月)',style: TextStyle(fontSize: 14),),
                       onPressed: (){
                         setState(() {
                           oldManValue=0;
@@ -691,7 +703,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       }
                     }else{
                       setState(() {
-                        oldManValue = 0;
+                        oldManValue = -1;
                       });
                     }
                   },
@@ -808,7 +820,31 @@ class _MyHomePageState extends State<MyHomePage> {
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
-          centerTitle:true
+          centerTitle:true,
+          actions:[
+            Padding(
+              padding: EdgeInsets.fromLTRB(0, 0, 10, 0),
+              child:IconButton(
+                  color: Colors.white,
+                  icon: ImageIcon(AssetImage('img/reset.png')),
+                  onPressed: (){
+                     setState(() {
+                       houseValue=0;//公积金值
+                       socialValue=0;//社保值
+                       houseLoansValue=0;//住房支出，贷款1000，租房分为1500、1100、800
+                       childValue=0;//小孩受教育，每个1000元
+                       oldManValue=-1;//赡养老人，独生子女2000，不是则自定义填写，不能超过1000
+                       continueEducationValue = 0;//继续教育，学历教育400，技能/资格教育300
+                       seriousValue=0;//大病支出，小于15000则不予扣减，但不能超过80000
+                       monthPayValue=0;
+                       childNum = 0;
+                       oldManOff = true;
+                       inputChildNum='';
+                     });
+                  }
+              ),
+            )
+          ],
       ),
       body:ListView(
         children: <Widget>[
